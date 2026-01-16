@@ -1,0 +1,2 @@
+term.clear()
+print('chatLogger')
