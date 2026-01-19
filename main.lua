@@ -50,21 +50,26 @@ local function appendToFile(line)
 	end
 end
 
-local function sendWebhook(url, content)
+local function sendWebhook(url, username, content)
 	if not http then return false, "http unavailable" end
 	print("[chatLogger] Posting webhook to: " .. tostring(url))
-	local payload = textutils and textutils.serializeJSON and textutils.serializeJSON({content = content}) or '{"content":"' .. content .. '"}'
+	local embed = {
+		username = "chatLogger",
+		embeds = {{
+			author = { name = username or "unknown", icon_url = "https://mc-heads.net/avatar/" .. (username or "") },
+			description = content or "",
+			color = 57000000,
+		}}
+	}
+	local payload = textutils and textutils.serializeJSON and textutils.serializeJSON(embed) or '{}'
 	local headers = { ["Content-Type"] = "application/json" }
 	local ok, resp = pcall(http.post, url, payload, headers)
 	if not ok or not resp then
 		print("[chatLogger] webhook http.post failed: " .. tostring(resp))
 		return false, tostring(resp)
 	end
-	-- Try to read response body if present for debugging
 	local body = nil
-	if resp.readAll then
-		body = resp.readAll()
-	end
+	if resp.readAll then body = resp.readAll() end
 	print("[chatLogger] webhook response: " .. tostring(body))
 	return true, body or resp
 end
@@ -95,7 +100,6 @@ local function sendRemote(line)
 end
 
 print("chatLogger running. Logging to: " .. (config.logDir or "/chatlogs"))
-
 while true do
 	local ev = { os.pullEvent() }
 	local name = ev[1]
@@ -113,7 +117,7 @@ while true do
 			local line = string.format("[%s] <%s> %s", timestamp(), username, message)
 			if uuid then line = line .. string.format(" (uuid=%s)", uuid) end
 			appendToFile(line)
-			sendRemote(line)
+			sendRemote(username, message)
 		end
 
 	elseif name == "chat_message" then
@@ -122,6 +126,6 @@ while true do
 		local message = ev[3] or ""
 		local line = string.format("[%s] <%s> %s", timestamp(), author, message)
 		appendToFile(line)
-		sendRemote(line)
+		sendRemote(author, message)
 	end
 end
