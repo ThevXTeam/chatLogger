@@ -1,8 +1,28 @@
-local config = require("config")
 local textutils = textutils
+
+-- Robust config loading: try require, then common file locations
+local config = nil
+do
+	local ok, c = pcall(require, "config")
+	if ok and type(c) == "table" then
+		config = c
+	else
+		local tried = {"/repos/chatLogger/config.lua", "repos/chatLogger/config.lua", "config.lua"}
+		for _, p in ipairs(tried) do
+			if fs.exists(p) then
+				local ok2, c2 = pcall(dofile, p)
+				if ok2 and type(c2) == "table" then config = c2 break end
+			end
+		end
+	end
+	if not config then
+		config = { logDir = "/chatlogs", chatEventName = "chat", remote = { enabled = false } }
+	end
+end
 
 term.clear()
 print("chatLogger starting...")
+print("Config: remote.enabled=" .. tostring((config.remote and config.remote.enabled) and true or false))
 
 local function ensureDir(path)
 	if not fs.exists(path) then
@@ -32,11 +52,21 @@ end
 
 local function sendWebhook(url, content)
 	if not http then return false, "http unavailable" end
-	local payload = textutils.serializeJSON({content = content})
+	print("[chatLogger] Posting webhook to: " .. tostring(url))
+	local payload = textutils and textutils.serializeJSON and textutils.serializeJSON({content = content}) or '{"content":"' .. content .. '"}'
 	local headers = { ["Content-Type"] = "application/json" }
 	local ok, resp = pcall(http.post, url, payload, headers)
-	if not ok or not resp then return false, tostring(resp) end
-	return true, resp
+	if not ok or not resp then
+		print("[chatLogger] webhook http.post failed: " .. tostring(resp))
+		return false, tostring(resp)
+	end
+	-- Try to read response body if present for debugging
+	local body = nil
+	if resp.readAll then
+		body = resp.readAll()
+	end
+	print("[chatLogger] webhook response: " .. tostring(body))
+	return true, body or resp
 end
 
 local function sendPaste(content)
