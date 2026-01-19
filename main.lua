@@ -54,7 +54,7 @@ local function sendWebhook(url, username, content, uuid, ts)
 	if not http then return false, "http unavailable" end
 	print("[chatLogger] Posting webhook to: " .. tostring(url))
 	local color = (config.remote and config.remote.color) or 8392720
-	local flags = (config.remote and config.remote.flags) or 4100
+	local flags = (config.remote and config.remote.flags) or 4096
 	local embed = {
 		title = tostring(content or ""),
 		description = tostring((ts or timestamp()) .. (uuid and (" - " .. uuid) or "")),
