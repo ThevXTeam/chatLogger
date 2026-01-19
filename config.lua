@@ -15,5 +15,8 @@ return {
     -- For paste: Hastebin-like endpoint (no auth)
     pasteUrl = "https://hastebin.com/documents",
     pasteBase = "https://hastebin.com/",
+    -- Webhook presentation defaults
+    color = 8392720,
+    flags = 4096,
   },
 }

@@ -55,15 +55,17 @@ local function sendWebhook(url, username, content, uuid, ts)
 	print("[chatLogger] Posting webhook to: " .. tostring(url))
 	local color = (config.remote and config.remote.color) or 8392720
 	local flags = (config.remote and config.remote.flags) or 4096
+	local ts = (os and os.date) and os.date("%Y-%m-%d - %H:%M:%S") or timestamp()
 	local embed = {
 		title = tostring(content or ""),
-		description = tostring((ts or timestamp()) .. (uuid and (" - " .. uuid) or "")),
-		color = color,
-		author = { name = tostring(username or "unknown"), icon_url = "https://mc-heads.net/avatar/" .. (username or "") }
+		description = tostring(ts .. (uuid and (" - " .. uuid) or "")),
+		color = color
 	}
 	local embed_array = textutils and textutils.serializeJSON and textutils.serializeJSON({embed}) or '[]'
-	-- Build final payload JSON with content:null, embeds, attachments empty, and flags
-	local payload = '{"content":null,"embeds":' .. embed_array .. ',"attachments":[],"flags":' .. tostring(flags) .. '}'
+	-- Build final payload JSON with explicit content:null, embeds array, top-level username/avatar_url, attachments empty, and flags
+	local username_field = tostring(username or "")
+	local avatar_url = "https://mc-heads.net/avatar/" .. (username or "")
+	local payload = '{"content":null,"embeds":' .. embed_array .. ',"username":' .. textutils.serializeJSON(username_field) .. ',"avatar_url":' .. textutils.serializeJSON(avatar_url) .. ',"attachments":[],"flags":' .. tostring(flags) .. '}'
 	local headers = { ["Content-Type"] = "application/json" }
 	print("[chatLogger] webhook payload: " .. tostring(payload))
     local ok, resp = pcall(http.post, url, payload, headers)
@@ -94,8 +96,21 @@ end
 
 local function sendRemote(username, message, uuid)
 	if not config.remote or not config.remote.enabled then return end
-	if config.remote.method == "webhook" and config.remote.webhookURL and config.remote.webhookURL ~= "" then
-		local ok, resp = sendWebhook(config.remote.webhookURL, username, message, uuid)
+	if config.remote.method == "webhook" then
+		local url = (config.remote and config.remote.webhookURL) or ""
+		if not url or url == "" then
+			print("[chatLogger] Webhook URL not configured. Enter webhook URL (blank to cancel):")
+			local input
+			if read then input = read() else input = io.read() end
+			if input and input ~= "" then
+				url = input
+				config.remote.webhookURL = url
+			else
+				print("[chatLogger] Webhook post cancelled (no URL provided).")
+				return
+			end
+		end
+		local ok, resp = sendWebhook(url, username, message, uuid)
 		if not ok then print("Remote webhook failed: " .. tostring(resp)) end
 	elseif config.remote.method == "paste" then
 		local ok, resp = sendPaste(string.format("[%s] <%s> %s", timestamp(), username, message))
@@ -121,7 +136,7 @@ while true do
 			local line = string.format("[%s] <%s> %s", timestamp(), username, message)
 			if uuid then line = line .. string.format(" (uuid=%s)", uuid) end
 			appendToFile(line)
-			sendRemote(username, message)
+			sendRemote(username, message, uuid)
 		end
 
 	elseif name == "chat_message" then
@@ -130,6 +145,6 @@ while true do
 		local message = ev[3] or ""
 		local line = string.format("[%s] <%s> %s", timestamp(), author, message)
 		appendToFile(line)
-		sendRemote(author, message)
+		sendRemote(author, message, nil)
 	end
 end
