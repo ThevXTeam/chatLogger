@@ -50,20 +50,24 @@ local function appendToFile(line)
 	end
 end
 
-local function sendWebhook(url, username, content)
+local function sendWebhook(url, username, content, uuid, ts)
 	if not http then return false, "http unavailable" end
 	print("[chatLogger] Posting webhook to: " .. tostring(url))
+	local color = (config.remote and config.remote.color) or 8392720
+	local flags = (config.remote and config.remote.flags) or 4100
 	local embed = {
-		username = "chatLogger",
-		embeds = {{
-			author = { name = username or "unknown", icon_url = "https://mc-heads.net/avatar/" .. (username or "") },
-			description = content or "",
-			color = 57000000,
-		}}
+		title = tostring(content or ""),
+		description = tostring((ts or timestamp()) .. (uuid and (" - " .. uuid) or "")),
+		color = color,
+		author = { name = tostring(username or "unknown"), icon_url = "https://mc-heads.net/avatar/" .. (username or "") }
 	}
-	local payload = textutils and textutils.serializeJSON and textutils.serializeJSON(embed) or '{}'
+	local embed_array = textutils and textutils.serializeJSON and textutils.serializeJSON({embed}) or '[]'
+	-- Build final payload JSON with content:null, embeds, attachments empty, and flags
+	local payload = '{"content":null,"embeds":' .. embed_array .. ',"attachments":[],"flags":' .. tostring(flags) .. '}'
 	local headers = { ["Content-Type"] = "application/json" }
-	local ok, resp = pcall(http.post, url, payload, headers)
+	print("[chatLogger] webhook payload: " .. tostring(payload))
+    local ok, resp = pcall(http.post, url, payload, headers)
+    
 	if not ok or not resp then
 		print("[chatLogger] webhook http.post failed: " .. tostring(resp))
 		return false, tostring(resp)
@@ -88,13 +92,13 @@ local function sendPaste(content)
 	return false, body
 end
 
-local function sendRemote(line)
+local function sendRemote(username, message, uuid)
 	if not config.remote or not config.remote.enabled then return end
 	if config.remote.method == "webhook" and config.remote.webhookURL and config.remote.webhookURL ~= "" then
-		local ok, resp = sendWebhook(config.remote.webhookURL, line)
+		local ok, resp = sendWebhook(config.remote.webhookURL, username, message, uuid)
 		if not ok then print("Remote webhook failed: " .. tostring(resp)) end
 	elseif config.remote.method == "paste" then
-		local ok, resp = sendPaste(line)
+		local ok, resp = sendPaste(string.format("[%s] <%s> %s", timestamp(), username, message))
 		if ok then print("Pasted: " .. tostring(resp)) else print("Paste failed: " .. tostring(resp)) end
 	end
 end
