@@ -21,8 +21,8 @@ do
 end
 
 term.clear()
-print("chatLogger starting...")
-print("Config: remote.enabled=" .. tostring((config.remote and config.remote.enabled) and true or false))
+print("Program CL running...")
+-- print("Config: remote.enabled=" .. tostring((config.remote and config.remote.enabled) and true or false))
 
 local function ensureDir(path)
 	if not fs.exists(path) then
@@ -52,12 +52,12 @@ end
 
 local function sendWebhook(url, username, content, uuid, ts)
 	if not http then return false, "http unavailable" end
-	print("[chatLogger] Posting webhook to: " .. tostring(url))
+	-- print("[chatLogger] Posting webhook to: " .. tostring(url))
 	local color = (config.remote and config.remote.color) or 8392720
 	local flags = (config.remote and config.remote.flags) or 4096
 	local ts = (os and os.date) and os.date("%Y-%m-%d - %H:%M:%S") or timestamp()
 	local embed = {
-		title = tostring(content or ""),
+		title = tostring(content or ""), 
 		description = tostring(ts .. (uuid and (" - " .. uuid) or "")),
 		color = color
 	}
@@ -67,7 +67,7 @@ local function sendWebhook(url, username, content, uuid, ts)
 	local avatar_url = "https://mc-heads.net/avatar/" .. (username or "")
 	local payload = '{"content":null,"embeds":' .. embed_array .. ',"username":' .. textutils.serializeJSON(username_field) .. ',"avatar_url":' .. textutils.serializeJSON(avatar_url) .. ',"attachments":[],"flags":' .. tostring(flags) .. '}'
 	local headers = { ["Content-Type"] = "application/json" }
-	print("[chatLogger] webhook payload: " .. tostring(payload))
+	-- print("[chatLogger] webhook payload: " .. tostring(payload))
     local ok, resp = pcall(http.post, url, payload, headers)
     
 	if not ok or not resp then
@@ -76,7 +76,7 @@ local function sendWebhook(url, username, content, uuid, ts)
 	end
 	local body = nil
 	if resp.readAll then body = resp.readAll() end
-	print("[chatLogger] webhook response: " .. tostring(body))
+	-- print("[chatLogger] webhook response: " .. tostring(body))
 	return true, body or resp
 end
 
@@ -118,7 +118,6 @@ local function sendRemote(username, message, uuid)
 	end
 end
 
-print("chatLogger running. Logging to: " .. (config.logDir or "/chatlogs"))
 while true do
 	local ev = { os.pullEvent() }
 	local name = ev[1]
